@@ -1,0 +1,92 @@
+name: Release Build
+permissions: write-all
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:  # Thêm dòng này để cho phép kích hoạt thủ công
+
+jobs:
+  build:
+    name: Debug build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Get latest go version
+        id: version
+        run: |
+          echo go_version=$(curl -s https://raw.githubusercontent.com/actions/go-versions/main/versions-manifest.json | grep -oE '"version": "[0-9]{1}.[0-9]{1,}(.[0-9]{1,})?"' | head -1 | cut -d':' -f2 | sed 's/ //g; s/"//g') >> $GITHUB_OUTPUT
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ steps.version.outputs.go_version }}
+      - name: Add cache to Go proxy
+        run: |
+          version=`git rev-parse HEAD`
+          mkdir build
+          pushd build
+          go mod init build
+          go get -v github.com/sagernet/sing-box@$version
+          popd
+        continue-on-error: true
+      - name: Run Test
+        run: |
+          go test -v ./...
+
+  cross:
+    strategy:
+      matrix:
+        include:
+          # Android ARM64
+          - name: android-arm64
+            goos: android
+            goarch: arm64
+
+          # Linux AMD64
+          - name: linux-amd64
+            goos: linux
+            goarch: amd64
+
+          # Linux ARM64
+          - name: linux-arm64
+            goos: linux
+            goarch: arm64
+          
+    runs-on: ubuntu-latest
+    env:
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+      CGO_ENABLED: 0
+      TAGS: with_clash_api,with_quic,with_reality_server,with_utls,with_ech,with_gvisor,with_ws
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Get latest go version
+        id: version
+        run: |
+          echo go_version=$(curl -s https://raw.githubusercontent.com/actions/go-versions/main/versions-manifest.json | grep -oE '"version": "[0-9]{1}.[0-9]{1,}(.[0-9]{1,})?"' | head -1 | cut -d':' -f2 | sed 's/ //g; s/"//g') >> $GITHUB_OUTPUT
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ steps.version.outputs.go_version }}
+      - name: Build
+        id: build
+        run: make
+      - name: Rename
+        run: |
+          ls -R
+          7z a sing-box-${{ matrix.name }}.zip sing-box*
+      - name: Upload Release
+        uses: svenstaro/upload-release-action@v2
+        if: ${{ success() }}
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref }}
+          file: sing-box-${{ matrix.name }}.zip
+          overwrite: true
+          prerelease: false
