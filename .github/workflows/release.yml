@@ -131,16 +131,18 @@ jobs:
 
       - name: Create or update release
         run: |
+          # Get all .zip files in the artifacts directory
+          files=$(find ./artifacts -name "*.zip")
           if [ "${{ env.RELEASE_EXISTS }}" = "false" ]; then
             gh release create ${{ env.TAG_NAME }} \
               --generate-notes \
               --latest \
               --title "Build bởi Thời Tiết - ${{ env.RELEASE_NAME }}" \
               --notes-file release-notes.txt \
-              ./artifacts/*
+              $files
           else
             gh release upload ${{ env.TAG_NAME }} \
-              ./artifacts/*
+              $files
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
