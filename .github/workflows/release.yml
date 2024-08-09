@@ -80,11 +80,28 @@ jobs:
         id: build
         run: make
 
-      - name: Rename
+      - name: Rename and Store Artifacts
         run: |
           ls -R
-          7z a sing-box-${{ matrix.name }}.zip sing-box*
-        
+          artifact_name=sing-box-${{ matrix.name }}.zip
+          7z a $artifact_name sing-box*
+          echo "artifact_name=$artifact_name" >> $GITHUB_ENV
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ env.artifact_name }}
+
+  release:
+    name: Create Release
+    needs: cross
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: Set variables
         run: |
           TZ="Asia/Ho_Chi_Minh"
@@ -107,6 +124,11 @@ jobs:
             echo "RELEASE_EXISTS=false" >> $GITHUB_ENV
           fi
 
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: ./artifacts/
+
       - name: Create or update release
         run: |
           if [ "${{ env.RELEASE_EXISTS }}" = "false" ]; then
@@ -115,10 +137,10 @@ jobs:
               --latest \
               --title "Build bởi Thời Tiết - ${{ env.RELEASE_NAME }}" \
               --notes-file release-notes.txt \
-              ./sing-box-${{ matrix.name }}.zip
+              ./artifacts/*
           else
             gh release upload ${{ env.TAG_NAME }} \
-              ./sing-box-${{ matrix.name }}.zip
+              ./artifacts/*
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
