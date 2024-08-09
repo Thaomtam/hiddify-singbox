@@ -61,9 +61,6 @@ jobs:
     env:
       GOOS: ${{ matrix.goos }}
       GOARCH: ${{ matrix.goarch }}
-      GOAMD64: ${{ matrix.goamd64 }}
-      GOARM: ${{ matrix.goarm }}
-      GOMIPS: ${{ matrix.gomips }}
       CGO_ENABLED: 0
       TAGS: with_clash_api,with_quic,with_grpc,with_wireguard,with_reality_server,with_v2ray_api,with_utls,with_ech,with_gvisor
     steps:
@@ -83,7 +80,7 @@ jobs:
         id: build
         run: make
 
-      - name: rename
+      - name: Rename
         run: |
           ls -R
           7z a sing-box-${{ matrix.name }}.zip sing-box*
@@ -101,13 +98,28 @@ jobs:
         run: |
           echo -e "👉 Github: thaomtam\n👉 Facebook: thời tiết\n👉 Telegram: t.me/ktandroidreview\n\n😍😍 Sing-Box core" > release-notes.txt
         
-      - name: Upload Release
+      - name: Check if release exists
+        id: check_release
         run: |
-          gh release create ${{ env.TAG_NAME }} \
-            --generate-notes \
-            --latest \
-            --title "Build bởi Thời Tiết - ${{ env.RELEASE_NAME }}" \
-            --notes-file release-notes.txt \
-            ./sing-box-${{ matrix.name }}.zip
+          if gh release view ${{ env.TAG_NAME }}; then
+            echo "RELEASE_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "RELEASE_EXISTS=false" >> $GITHUB_ENV
+          fi
+
+      - name: Create or update release
+        run: |
+          if [ "${{ env.RELEASE_EXISTS }}" = "false" ]; then
+            gh release create ${{ env.TAG_NAME }} \
+              --generate-notes \
+              --latest \
+              --title "Build bởi Thời Tiết - ${{ env.RELEASE_NAME }}" \
+              --notes-file release-notes.txt \
+              ./sing-box-${{ matrix.name }}.zip
+          else
+            gh release upload ${{ env.TAG_NAME }} \
+              ./sing-box-${{ matrix.name }}.zip
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
