@@ -40,10 +40,11 @@ jobs:
     strategy:
       matrix:
         include:
-          # Android ARM64
-          - name: android-arm64
+          # Android ARM64-v8a
+          - name: android-arm64-v8a
             goos: android
             goarch: arm64
+            android_abi: arm64-v8a  # Đảm bảo ABI Android chính xác
 
           # Linux AMD64
           - name: linux-amd64
@@ -60,7 +61,7 @@ jobs:
       GOOS: ${{ matrix.goos }}
       GOARCH: ${{ matrix.goarch }}
       CGO_ENABLED: 0
-      TAGS: with_clash_api,with_quic,with_reality_server,with_utls,with_ech,with_gvisor,with_ws
+      TAGS: with_clash_api,with_quic,with_reality_server,with_utls,with_ech,with_gvisor,with_ws,with_dhcp
     steps:
       - name: Checkout
         uses: actions/checkout@v3
