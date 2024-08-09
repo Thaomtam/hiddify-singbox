@@ -22,8 +22,8 @@ jobs:
 
       - name: Create and Push New Tag
         run: |
-          chmod +x ./create-tag.sh
-          ./create-tag.sh
+          chmod +x .github/workflows/create-tag.sh
+          .github/workflows/create-tag.sh
 
   build:
     name: Debug Build
