@@ -119,3 +119,24 @@ jobs:
           file: sing-box-${{ matrix.name }}.zip
           overwrite: true
           prerelease: false
+
+  create_release:
+    runs-on: ubuntu-latest
+    needs: cross
+    steps:
+      - name: Create Release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const [version] = process.env.GITHUB_REF.split('/').slice(-1);
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: version,
+              name: `Release ${version}`,
+              draft: false,
+              prerelease: false,
+            });
+            console.log(`Release created at ${release.data.html_url}`);
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Chuyển đến thư mục chứa repository, nếu cần thiết
+# cd /path/to/your/repository
+
 # Lấy phiên bản hiện tại
 current_version=$(git tag | grep "^sb101" | sort -V | tail -n 1)
 echo "Current version: $current_version"
