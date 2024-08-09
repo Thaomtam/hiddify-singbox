@@ -1,61 +1,39 @@
+workflow 1:
 name: Release Build
 permissions: write-all
 on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:  # Cho phép kích hoạt thủ công
+  workflow_dispatch:  # Thêm dòng này để cho phép kích hoạt thủ công
 
 jobs:
-  create_tag:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Set Up Git
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-
-      - name: Create and Push New Tag
-        run: |
-          chmod +x .github/workflows/create-tag.sh
-          .github/workflows/create-tag.sh
-
   build:
-    name: Debug Build
+    name: Debug build
     runs-on: ubuntu-latest
-    needs: create_tag
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-
-      - name: Get latest Go version
+      - name: Get latest go version
         id: version
         run: |
           echo go_version=$(curl -s https://raw.githubusercontent.com/actions/go-versions/main/versions-manifest.json | grep -oE '"version": "[0-9]{1}.[0-9]{1,}(.[0-9]{1,})?"' | head -1 | cut -d':' -f2 | sed 's/ //g; s/"//g') >> $GITHUB_OUTPUT
-
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: ${{ steps.version.outputs.go_version }}
-
-      - name: Add Cache to Go Proxy
+      - name: Add cache to Go proxy
         run: |
-          version=$(git rev-parse HEAD)
+          version=`git rev-parse HEAD`
           mkdir build
           pushd build
           go mod init build
           go get -v github.com/sagernet/sing-box@$version
           popd
         continue-on-error: true
-
-      - name: Run Tests
+      - name: Run Test
         run: |
           go test -v ./...
 
@@ -78,65 +56,59 @@ jobs:
           - name: linux-arm64
             goos: linux
             goarch: arm64
-
+            
+      fail-fast: false
     runs-on: ubuntu-latest
     env:
       GOOS: ${{ matrix.goos }}
       GOARCH: ${{ matrix.goarch }}
+      GOAMD64: ${{ matrix.goamd64 }}
+      GOARM: ${{ matrix.goarm }}
+      GOMIPS: ${{ matrix.gomips }}
       CGO_ENABLED: 0
-      TAGS: with_clash_api,with_quic,with_reality_server,with_utls,with_ech,with_gvisor,with_ws,with_dhcp
+      TAGS: with_clash_api,with_quic,with_grpc,with_wireguard,with_reality_server,with_v2ray_api,with_utls,with_ech,with_gvisor
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-
-      - name: Get latest Go version
+      - name: Get latest go version
         id: version
         run: |
           echo go_version=$(curl -s https://raw.githubusercontent.com/actions/go-versions/main/versions-manifest.json | grep -oE '"version": "[0-9]{1}.[0-9]{1,}(.[0-9]{1,})?"' | head -1 | cut -d':' -f2 | sed 's/ //g; s/"//g') >> $GITHUB_OUTPUT
-
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: ${{ steps.version.outputs.go_version }}
-
       - name: Build
         id: build
         run: make
 
-      - name: Rename Build Artifacts
+      - name: rename
         run: |
           ls -R
           7z a sing-box-${{ matrix.name }}.zip sing-box*
 
-      - name: Upload Release
-        uses: svenstaro/upload-release-action@v2
-        if: ${{ success() }}
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref }}
-          file: sing-box-${{ matrix.name }}.zip
-          overwrite: true
-          prerelease: false
+      - name: Set variables
+        run: |
+          TZ="Asia/Ho_Chi_Minh"
+          RELEASE_NAME=$(TZ=$TZ date '+%d/%m/%Y %H:%M')
+          TAG_NAME=$(TZ=$TZ date '+%Y%m%d%H%M')
+          echo "RELEASE_NAME=${RELEASE_NAME}" >> $GITHUB_ENV
+          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
+        shell: bash
 
-  create_release:
-    runs-on: ubuntu-latest
-    needs: cross
-    steps:
-      - name: Create Release
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const [version] = process.env.GITHUB_REF.split('/').slice(-1);
-            const release = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: version,
-              name: `Release ${version}`,
-              draft: false,
-              prerelease: false,
-            });
-            console.log(`Release created at ${release.data.html_url}`);
+      - name: Create release notes file
+        run: |
+          echo -e "👉 Github: thaomtam\n👉 Facebook: thời tiết\n👉 Telegram: t.me/ktandroidreview\n\n😍😍 Sing-Box phân mảnh tls" > release-notes.txt
+        
+      - name: Upload Release
+        run: |
+          gh release create ${{ env.TAG_NAME }} \
+            --generate-notes \
+            --latest \
+            --title "Build bởi Thời Tiết - ${{ env.RELEASE_NAME }}" \
+            --notes-file release-notes.txt \
+            ./sing-box-${{ matrix.name }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
