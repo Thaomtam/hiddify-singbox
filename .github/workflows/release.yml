@@ -62,7 +62,7 @@ jobs:
       GOOS: ${{ matrix.goos }}
       GOARCH: ${{ matrix.goarch }}
       CGO_ENABLED: 0
-      TAGS: with_clash_api,with_quic,with_reality_server,with_utls,with_ech,with_gvisor
+      TAGS: with_clash_api,with_quic,with_grpc,with_wireguard,with_reality_server,with_v2ray_api,with_utls,with_ech,with_gvisor
     steps:
       - name: Checkout
         uses: actions/checkout@v3
